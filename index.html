@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>РРП 3.0 — Главная</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ================= ГЕРОЙ ================= -->
+  <section class="hero container">
+    <span class="hero__badge"><span class="dot"></span> Roblox • Ролевой проект</span>
+    <h1>Добро пожаловать на сайт <span>РРП 3.0</span></h1>
+    <p>
+      Подай анкету на набор в команду проекта — Модератор или
+      Администрация, следи за статусом заявки и читай правила.
+    </p>
+    <p id="cloudNote" style="font-size:13px;color:var(--muted);margin-top:-14px;margin-bottom:24px;"></p>
+    <div class="btn-row">
+      <a class="btn btn--primary" href="anketa.html">📋 Подать анкету</a>
+      <a class="btn btn--ghost" href="status.html">🔎 Узнать статус анкеты</a>
+      <a class="btn btn--ghost" href="rules.html">📜 Правила</a>
+    </div>
+  </section>
+
+  <!-- ================= НАБОР ================= -->
+  <section class="container">
+    <h2 class="section-title">Набор в команду</h2>
+    <p class="section-sub">Выбери направление, в котором хочешь развивать проект.</p>
+
+    <div class="grid grid--3 fade-in">
+      <div class="card card--glow card--hover">
+        <div class="card__icon">🛡️</div>
+        <h3>Модератор</h3>
+        <p>
+          Следишь за порядком на сервере, наказываешь нарушителей по правилам,
+          помогаешь новичкам и разбираешь жалобы.
+        </p>
+        <span class="age-pill">Возраст: от 14 лет</span>
+        <br /><br />
+        <a class="btn btn--ghost btn--sm" href="anketa.html#moderator">Подать анкету →</a>
+      </div>
+
+      <div class="card card--glow card--hover">
+        <div class="card__icon">👑</div>
+        <h3>Администрация</h3>
+        <p>
+          Принимаешь ключевые решения, управляешь командой, контролируешь
+          работу проекта и решаешь спорные ситуации.
+        </p>
+        <span class="age-pill">Возраст: от 15 лет</span>
+        <br /><br />
+        <a class="btn btn--ghost btn--sm" href="anketa.html#admin">Подать анкету →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ПОЧЕМУ МЫ ================= -->
+  <section class="container">
+    <h2 class="section-title">Почему стоит присоединиться</h2>
+    <p class="section-sub">Мы развиваем проект вместе с игроками.</p>
+
+    <div class="grid grid--3 fade-in">
+      <div class="card card--hover">
+        <div class="card__icon">🌍</div>
+        <h3>Активное комьюнити</h3>
+        <p>Живые игроки, ивенты и постоянное развитие сервера.</p>
+      </div>
+      <div class="card card--hover">
+        <div class="card__icon">📈</div>
+        <h3>Рост и опыт</h3>
+        <p>Получишь реальный опыт управления ролевым проектом.</p>
+      </div>
+      <div class="card card--hover">
+        <div class="card__icon">⚖️</div>
+        <h3>Честность</h3>
+        <p>Прозрачные правила и одинаковые условия для всех.</p>
+      </div>
+    </div>
+  </section>
+
+  <script src="supabase-config.js"></script>
+  <script src="app.js"></script>
+  <script src="store.js"></script>
+  <script>
+    mountLayout("index");
+    document.getElementById("cloudNote").textContent = storageBadge();
+  </script>
+</body>
+</html>

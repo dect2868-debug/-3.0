@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Анкеты — Набор в команду</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <main class="container">
+    <h1 class="section-title">Анкеты на набор</h1>
+    <p class="section-sub">
+      Заполни анкету честно и подробно. После отправки ты получишь
+      <b style="color:var(--yellow)">уникальный код заявки</b> — по нему можно
+      проверить ответ администрации на странице
+      <a href="status.html">«Статус анкеты»</a>. Перед заполнением обязательно
+      прочитай <a href="rules.html">правила проекта</a>.
+    </p>
+
+    <!-- ================= ТАБЫ ================= -->
+    <div class="tabs">
+      <button class="tab active" data-tab="moderator">🛡️ Модератор<small>от 14 лет</small></button>
+      <button class="tab" data-tab="admin">👑 Администрация<small>от 15 лет</small></button>
+    </div>
+
+    <!-- ============ АНКЕТА: МОДЕРАТОР (14+) ============ -->
+    <section id="moderator" class="card fade-in">
+      <h3 style="margin-bottom:6px;">🛡️ Анкета на Модератора</h3>
+      <p style="color:var(--muted);font-size:14px;margin-bottom:18px;">Требуемый возраст — <b style="color:var(--yellow)">от 14 лет</b>.</p>
+      <form class="form" data-type="moderator" data-min-age="14" novalidate>
+        <div class="field--row">
+          <div class="field">
+            <label>Ник в Roblox <span class="req">*</span></label>
+            <input type="text" name="roblox" placeholder="Ваш ник в Roblox" required />
+          </div>
+          <div class="field">
+            <label>Возраст <span class="req">*</span></label>
+            <input type="number" name="age" min="14" max="99" placeholder="14" required />
+            <span class="error-text" data-err="age">Минимальный возраст — 14 лет</span>
+          </div>
+        </div>
+
+        <div class="field--row">
+          <div class="field">
+            <label>Discord (ник) <span class="req">*</span></label>
+            <input type="text" name="discord" placeholder="username или username#0001" required />
+            <span class="error-text" data-err="discord">Укажите корректный Discord ник</span>
+          </div>
+          <div class="field">
+            <label>Часовой пояс / страна <span class="req">*</span></label>
+            <input type="text" name="tz" placeholder="Например: Москва, UTC+3" required />
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Опыт модерации <span class="req">*</span></label>
+          <textarea name="exp" placeholder="Где уже был модератором, какие наказания выдавал, с какими ситуациями сталкивался..." required></textarea>
+        </div>
+
+        <div class="field">
+          <label>Ты заметил нарушителя. Твои действия? <span class="req">*</span></label>
+          <textarea name="cheater" placeholder="Опиши порядок действий: как фиксируешь нарушение, что делаешь дальше..." required></textarea>
+        </div>
+
+        <div class="field">
+          <label>Знаком ли ты с наказаниями за нарушения? <span class="req">*</span></label>
+          <textarea name="punish" placeholder="Какие наказания за: оффтоп, оскорбления, читы, DM/RD..." required></textarea>
+        </div>
+
+        <div class="field">
+          <label>Почему именно ты? <span class="req">*</span></label>
+          <textarea name="why" placeholder="Расскажи о своих сильных сторонах..." required></textarea>
+        </div>
+
+        <div class="field">
+          <label>Сколько часов в день готов быть на сервере? <span class="req">*</span></label>
+          <select name="hours" required>
+            <option value="">— выбери вариант —</option>
+            <option>1–2 часа</option>
+            <option>2–4 часа</option>
+            <option>4–6 часов</option>
+            <option>Более 6 часов</option>
+          </select>
+        </div>
+
+        <label class="checkbox">
+          <input type="checkbox" name="agree" required />
+          <span>Мне есть 14 лет, я прочитал(а) <a href="rules.html">правила проекта</a> и обязуюсь их соблюдать.</span>
+        </label>
+
+        <button type="submit" class="btn btn--primary">Отправить анкету на Модератора</button>
+      </form>
+    </section>
+
+    <!-- ============ АНКЕТА: АДМИНИСТРАЦИЯ (15+) ============ -->
+    <section id="admin" class="card fade-in hidden">
+      <h3 style="margin-bottom:6px;">👑 Анкета в Администрацию</h3>
+      <p style="color:var(--muted);font-size:14px;margin-bottom:18px;">Требуемый возраст — <b style="color:var(--yellow)">от 15 лет</b>.</p>
+      <form class="form" data-type="admin" data-min-age="15" novalidate>
+        <div class="field--row">
+          <div class="field">
+            <label>Ник в Roblox <span class="req">*</span></label>
+            <input type="text" name="roblox" placeholder="Ваш ник в Roblox" required />
+          </div>
+          <div class="field">
+            <label>Возраст <span class="req">*</span></label>
+            <input type="number" name="age" min="15" max="99" placeholder="15" required />
+            <span class="error-text" data-err="age">Минимальный возраст — 15 лет</span>
+          </div>
+        </div>
+
+        <div class="field--row">
+          <div class="field">
+            <label>Discord (ник) <span class="req">*</span></label>
+            <input type="text" name="discord" placeholder="username или username#0001" required />
+            <span class="error-text" data-err="discord">Укажите корректный Discord ник</span>
+          </div>
+          <div class="field">
+            <label>Часовой пояс <span class="req">*</span></label>
+            <input type="text" name="tz" placeholder="Например: Москва, UTC+3" required />
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Опыт в администрации Roblox-проектов <span class="req">*</span></label>
+          <textarea name="exp" placeholder="Где был админом, какие обязанности выполнял, с какими ситуациями сталкивался..." required></textarea>
+        </div>
+
+        <div class="field">
+          <label>Что для тебя значит роль администратора? <span class="req">*</span></label>
+          <textarea name="meaning" placeholder="Расскажи, как ты понимаешь ответственность этой роли..." required></textarea>
+        </div>
+
+        <div class="field">
+          <label>Как разрешишь спор между игроками? <span class="req">*</span></label>
+          <textarea name="conflict" placeholder="Опиши порядок действий при конфликте..." required></textarea>
+        </div>
+
+        <div class="field">
+          <label>Сколько часов в день готов быть на сервере? <span class="req">*</span></label>
+          <select name="hours" required>
+            <option value="">— выбери вариант —</option>
+            <option>1–2 часа</option>
+            <option>2–4 часа</option>
+            <option>4–6 часов</option>
+            <option>Более 6 часов</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Почему именно ты? <span class="req">*</span></label>
+          <textarea name="why" placeholder="Расскажи о своих сильных сторонах..." required></textarea>
+        </div>
+
+        <label class="checkbox">
+          <input type="checkbox" name="agree" required />
+          <span>Мне есть 15 лет, я прочитал(а) <a href="rules.html">правила проекта</a> и обязуюсь их соблюдать.</span>
+        </label>
+
+        <button type="submit" class="btn btn--primary">Отправить анкету в Администрацию</button>
+      </form>
+    </section>
+  </main>
+
+  <!-- ============ МОДАЛКА С КОДЕМ ЗАЯВКИ ============ -->
+  <div class="modal-back" id="ticketModal">
+    <div class="modal">
+      <div class="modal__icon">✅</div>
+      <h3>Анкета отправлена!</h3>
+      <p>Сохрани свой уникальный код заявки — по нему ты увидишь ответ администрации.</p>
+      <div class="ticket" id="ticketCode">--</div>
+      <div class="btn-row">
+        <button class="btn btn--success" id="btnCopyTicket">📋 Скопировать код</button>
+        <a class="btn btn--primary" id="btnGoStatus" href="status.html">Проверить статус</a>
+      </div>
+      <p style="margin:16px 0 0;font-size:13px;">Код также отправлен тебе в Discord-личку (если бот подключён).</p>
+    </div>
+  </div>
+
+  <script src="supabase-config.js"></script>
+  <script src="app.js"></script>
+  <script src="store.js"></script>
+  <script>
+    mountLayout("anketa");
+
+    /* ---------- Переключение вкладок ---------- */
+    const tabs = document.querySelectorAll(".tab");
+    const panels = document.querySelectorAll("section.card[id]");
+
+    function showTab(name) {
+      tabs.forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
+      panels.forEach((p) => p.classList.toggle("hidden", p.id !== name));
+      history.replaceState(null, "", "#" + name);
+    }
+
+    tabs.forEach((t) => t.addEventListener("click", () => showTab(t.dataset.tab)));
+
+    const start = location.hash.replace("#", "");
+    if (["moderator", "admin"].includes(start)) showTab(start);
+
+    /* ---------- Отправка анкет ---------- */
+    const RU_FIELD = {
+      roblox: "Ник в Roblox", age: "Возраст", discord: "Discord", tz: "Часовой пояс",
+      exp: "Опыт", why: "Мотивация", cheater: "Действия с нарушителем",
+      punish: "Наказания", conflict: "Конфликтная ситуация",
+      meaning: "Смысл роли", extra: "Доп. информация", hours: "Свободное время",
+    };
+
+    const modal = document.getElementById("ticketModal");
+    let lastTicket = "";
+
+    document.getElementById("btnCopyTicket").addEventListener("click", () => {
+      navigator.clipboard?.writeText(lastTicket).then(
+        () => toast("Код скопирован 📋"),
+        () => toast("Скопируйте код вручную", "err")
+      );
+    });
+
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) modal.classList.remove("show");
+    });
+
+    document.querySelectorAll("form.form").forEach((form) => {
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        if (!validateForm(form)) {
+          toast("Заполни все обязательные поля!", "err");
+          return;
+        }
+
+        const minAge = parseInt(form.dataset.minAge, 10) || 0;
+        const ageField = form.querySelector('[name="age"]');
+        const ageErr = form.querySelector('[data-err="age"]');
+        const age = parseInt(ageField.value, 10);
+
+        if (!age || age < minAge) {
+          ageField.style.borderColor = "var(--red)";
+          if (ageErr) ageErr.style.display = "block";
+          toast("Возраст не соответствует требованиям!", "err");
+          return;
+        }
+        ageField.style.borderColor = "";
+        if (ageErr) ageErr.style.display = "none";
+
+        const discord = form.querySelector('[name="discord"]');
+        const errEl = form.querySelector('[data-err="discord"]');
+        if (!isDiscordTag(discord.value)) {
+          discord.style.borderColor = "var(--red)";
+          if (errEl) errEl.style.display = "block";
+          toast("Проверь Discord ник — формат неверный", "err");
+          return;
+        }
+        discord.style.borderColor = "";
+        if (errEl) errEl.style.display = "none";
+
+        const data = {};
+        new FormData(form).forEach((v, k) => (data[k] = v));
+
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const oldText = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Отправка...";
+
+        try {
+          const created = await Store.create({
+            type: form.dataset.type,
+            roblox: data.roblox,
+            age: age,
+            discord: data.discord,
+            tz: data.tz,
+            hours: data.hours,
+            answers: Object.entries(data)
+              .filter(([k]) => k !== "agree")
+              .map(([k, v]) => ({ label: RU_FIELD[k] || k, value: v })),
+          });
+
+          lastTicket = created.ticket;
+          document.getElementById("ticketCode").textContent = created.ticket;
+          // Передаём код в ссылку, чтобы игрок увидел статус сразу
+          document.getElementById("btnGoStatus").href =
+            "status.html?ticket=" + encodeURIComponent(created.ticket);
+          modal.classList.add("show");
+          form.reset();
+        } catch (err) {
+          console.error(err);
+          toast("Ошибка отправки! Попробуй ещё раз.", "err");
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = oldText;
+        }
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Статус анкеты — RP PROJECT</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <main class="container">
+    <h1 class="section-title">🔎 Статус анкеты</h1>
+    <p class="section-sub" style="text-align:center;">
+      Введи свой <b style="color:var(--yellow)">код заявки</b> (выдался после отправки)
+      или ник в Roblox — и увидишь, приняли тебя или нет, а также ответ администрации.
+    </p>
+
+    <!-- ============ ПОИСК ============ -->
+    <div class="status-search">
+      <form id="searchForm" class="form" style="gap:12px;">
+        <div class="field">
+          <label>Код заявки или ник в Roblox</label>
+          <input type="text" id="searchInput" placeholder="Например: K7-42XF или YourNick" autocomplete="off" />
+          <span class="hint">Код выдаётся в формате <b>XX-XXXX</b> при отправке анкеты.</span>
+        </div>
+        <button type="submit" class="btn btn--primary btn--block">Найти анкету</button>
+      </form>
+    </div>
+
+    <!-- ============ РЕЗУЛЬТАТЫ ============ -->
+    <div id="results">
+      <div class="empty">
+        <span class="big">📭</span>
+        Введи код заявки или свой ник, чтобы посмотреть статус и ответ администрации.
+      </div>
+    </div>
+  </main>
+
+  <script src="supabase-config.js"></script>
+  <script src="app.js"></script>
+  <script src="store.js"></script>
+  <script>
+    mountLayout("status");
+
+    const resultsEl = document.getElementById("results");
+    const input = document.getElementById("searchInput");
+
+    const TYPE_RU = { moderator: "Модератор", admin: "Администрация" };
+    const TYPE_ICON = { moderator: "🛡️", admin: "👑" };
+
+    const STATUS_TEXT = {
+      new: "⏳ На рассмотрении",
+      ok: "✅ Принято",
+      no: "❌ Отклонено",
+    };
+
+    function render(list) {
+      if (!list.length) {
+        resultsEl.innerHTML = `
+          <div class="empty">
+            <span class="big">🔍</span>
+            Ничего не найдено.<br />
+            <small>Проверь код или ник. Если анкета не была отправлена —
+            <a href="anketa.html">подай её здесь</a>.</small>
+          </div>`;
+        return;
+      }
+
+      resultsEl.innerHTML = list.map((a) => {
+        // Шаги прогресса
+        const stepNew = "on";
+        const stepCheck = a.status === "new" ? "" : "on";
+        const stepEnd = a.status === "ok" ? "on green" : a.status === "no" ? "on red" : "";
+
+        return `
+        <div class="status-card">
+          <div class="status-card__head">
+            <h3>${TYPE_ICON[a.type] || "📋"} ${esc(a.roblox)}</h3>
+            <span class="badge badge--${esc(a.type)}">${TYPE_RU[a.type] || esc(a.type)}</span>
+            <span class="badge badge--ticket">${esc(a.ticket || "—")}</span>
+          </div>
+          <div class="app-item__meta">Отправлена: ${esc(a.date)}</div>
+          ${a.answerDate ? `<div class="app-item__meta">Ответ: ${esc(a.answerDate)}</div>` : ""}
+
+          <div class="status-steps">
+            <div class="step ${stepNew}">Отправлена</div>
+            <div class="step ${stepCheck}">На рассмотрении</div>
+            <div class="step ${stepEnd}">Решение</div>
+          </div>
+
+          <div class="ans">
+            <b>📊 Статус</b>
+            <div>${STATUS_TEXT[a.status] || "⏳ На рассмотрении"}</div>
+          </div>
+
+          ${
+            a.answer
+              ? `<div class="ans ans--answer">
+                   <b>💬 Ответ администрации</b>
+                   <div>${esc(a.answer)}</div>
+                 </div>`
+              : `<div class="ans">
+                   <b>💬 Ответ администрации</b>
+                   <div style="color:var(--muted)">Пока нет ответа. Жди решения — сюда придёт сообщение от команды проекта.</div>
+                 </div>`
+          }
+        </div>`;
+      }).join("");
+    }
+
+    async function doSearch(q, btn) {
+      const busy = btn || document.querySelector('#searchForm button[type="submit"]');
+      if (busy) { busy.disabled = true; busy.textContent = "Поиск..."; }
+      try {
+        let list = await Store.findByTicket(q);
+        if (!list.length) list = await Store.findByNick(q);
+        render(list);
+        if (!list.length) toast("Анкета не найдена 😕", "err");
+        return list;
+      } catch (err) {
+        console.error(err);
+        toast("Ошибка поиска! Попробуй ещё раз.", "err");
+        return [];
+      } finally {
+        if (busy) { busy.disabled = false; busy.textContent = "Найти анкету"; }
+      }
+    }
+
+    document.getElementById("searchForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const q = input.value.trim();
+      if (!q) { toast("Введи код или ник!", "err"); return; }
+      await doSearch(q, e.target.querySelector('button[type="submit"]'));
+    });
+
+    // Если пришли по ссылке с кодом (status.html?ticket=XXX) — ищем сразу
+    (async () => {
+      const params = new URLSearchParams(location.search);
+      const t = (params.get("ticket") || "").trim();
+      if (t) {
+        input.value = t;
+        await doSearch(t);
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Обновления — РРП 3.0</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <main class="container">
+    <h1 class="section-title">🚀 Обновления проекта</h1>
+    <p class="section-sub">
+      Здесь мы публикуем все изменения на сайте и в проекте — что добавилось,
+      что исправилось и что планируется.
+    </p>
+
+    <div class="badge badge--new" style="display:inline-block;margin-bottom:22px;" id="latestVer">
+      Текущая версия сайта: загрузка...
+    </div>
+
+    <div id="changelog"></div>
+  </main>
+
+  <script src="supabase-config.js"></script>
+  <script src="app.js"></script>
+  <script src="store.js"></script>
+  <script>
+    mountLayout("updates");
+
+    /* ------------------------------------------------------------
+       СПИСОК ОБНОВЛЕНИЙ
+       Чтобы добавить новое — просто вставь объект в начало массива.
+       fields: version, date, title, tag("major"|"minor"|"fix"), items[]
+       ------------------------------------------------------------ */
+    const UPDATES = [
+      {
+        version: "2.4.0",
+        date: "27.10.2026",
+        title: "Раздел обновлений и пофикшенные баги",
+        tag: "minor",
+        items: [
+          "added: Добавлена страница «Обновления» с историей версий",
+          "fixed: Смена пароля администратора теперь сохраняется в облаке даже при первой смене",
+          "fixed: Кнопка «Проверить статус» теперь сразу открывает результат с кодом заявки",
+          "fixed: Страница статуса понимает ссылку вида status.html?ticket=XXX",
+        ],
+      },
+      {
+        version: "2.3.0",
+        date: "26.10.2026",
+        title: "Подключение Supabase и новая админка",
+        tag: "major",
+        items: [
+          "added: Подключение к облачной базе Supabase — заявки общие для всех игроков",
+          "added: Новая админ-панель с модальным редактором ответа и живым предпросмотром",
+          "added: Быстрые шаблоны ответов (принят / отклонён / ждём / напиши в Discord)",
+          "added: Сортировка заявок и экспорт в JSON",
+          "added: Индикатор режима хранения (облако / локально)",
+          "fixed: Пароль администратора хранится хэшем (SHA-256), а не открытым текстом",
+        ],
+      },
+      {
+        version: "2.2.0",
+        date: "25.10.2026",
+        title: "Модератор вместо куратора, возрастные ограничения",
+        tag: "minor",
+        items: [
+          "changed: Направление «Куратор» убрано из набора",
+          "added: Направление «Модератор» — возраст от 14 лет",
+          "changed: «Администрация» — возраст от 15 лет",
+          "removed: Убрано правило «играть можно с 12 лет»",
+          "added: Возраст проверяется автоматически при отправке анкеты",
+        ],
+      },
+      {
+        version: "2.1.0",
+        date: "24.10.2026",
+        title: "Статус анкеты и уникальные коды",
+        tag: "minor",
+        items: [
+          "added: Страница «Статус анкеты» — игрок видит ответ администрации",
+          "added: Уникальный код заявки (например K7-42XF) при отправке",
+          "added: Прогресс-бар статуса заявки",
+          "added: Модальное окно с кодом и кнопкой копирования",
+        ],
+      },
+      {
+        version: "2.0.0",
+        date: "23.10.2026",
+        title: "Новый дизайн и переименование в РРП 3.0",
+        tag: "major",
+        items: [
+          "changed: Проект переименован в РРП 3.0",
+          "added: Анимированный фон и стеклянные карточки",
+          "added: Тёмная тема с неоновым акцентом",
+          "added: Страница правил с системой наказаний",
+          "added: Адаптив под мобильные устройства",
+        ],
+      },
+      {
+        version: "1.0.0",
+        date: "22.10.2026",
+        title: "Первая версия сайта",
+        tag: "major",
+        items: [
+          "added: Главная страница проекта",
+          "added: Формы анкет на команду",
+          "added: Страница правил",
+        ],
+      },
+    ];
+
+    /* ---------- Отрисовка ---------- */
+    const TAGS = {
+      major: { cls: "badge--admin",   txt: "Крупное обновление" },
+      minor: { cls: "badge--moderator", txt: "Улучшение" },
+      fix:   { cls: "badge--no",      txt: "Исправление" },
+    };
+
+    const ITEM_ICONS = {
+      added:   { icon: "✨", color: "var(--green)" },
+      fixed:   { icon: "🐛", color: "var(--accent)" },
+      changed: { icon: "🔄", color: "var(--yellow)" },
+          removed: { icon: "🗑️", color: "var(--red)" },
+    };
+
+    function itemHtml(line) {
+      const m = String(line).match(/^(added|fixed|changed|removed)\s*:\s*(.*)$/i);
+      if (!m) return `<li style="color:var(--muted)">${esc(line)}</li>`;
+      const meta = ITEM_ICONS[m[1].toLowerCase()] || ITEM_ICONS.added;
+      return `<li><span style="color:${meta.color}">${meta.icon} ${esc(m[2])}</span></li>`;
+    }
+
+    document.getElementById("latestVer").textContent =
+      `Текущая версия сайта: v${UPDATES[0].version}`;
+
+    document.getElementById("changelog").innerHTML = UPDATES.map((u, i) => {
+      const tag = TAGS[u.tag] || TAGS.minor;
+      return `
+      <div class="app-item fade-in" style="animation-delay:${i * 60}ms;margin-bottom:16px;">
+        <div class="app-item__head">
+          <span class="badge badge--ticket">v${esc(u.version)}</span>
+          <span class="badge ${tag.cls}">${tag.txt}</span>
+          <span class="app-item__meta">📅 ${esc(u.date)}</span>
+          ${i === 0 ? '<span class="badge badge--ok">Актуальное</span>' : ""}
+        </div>
+        <h3 style="margin-bottom:10px;">${esc(u.title)}</h3>
+        <ul style="margin-left:20px;display:grid;gap:6px;">
+          ${(u.items || []).map(itemHtml).join("")}
+        </ul>
+      </div>`;
+    }).join("");
+  </script>
+</body>
+</html>

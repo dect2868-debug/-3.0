@@ -1,0 +1,5 @@
+# Служебные файлы Windows / логи
+Thumbs.db
+Desktop.ini
+*.log
+.DS_Store
