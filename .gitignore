@@ -3,3 +3,7 @@ Thumbs.db
 Desktop.ini
 *.log
 .DS_Store
+
+# ВАЖНО: admin.html попадает в глобальный ~/.gitignore-global (проект ORBITA).
+# Без отмены ниже файл не коммитится → на сайте админка отдаёт 404.
+!admin.html

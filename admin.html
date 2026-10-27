@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Администрация — Панель управления</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <main class="container">
+    <!-- ============ ЭКРАН ВХОДА ============ -->
+    <div id="loginView" class="admin-lock card fade-in">
+      <div class="card__icon" style="margin:0 auto 16px;">🛡️</div>
+      <h2 style="margin-bottom:6px;">Вход для администрации</h2>
+      <p style="color:var(--muted);margin-bottom:20px;font-size:14px;">
+        Этот раздел доступен только для администрации проекта.
+      </p>
+      <form id="loginForm" class="form">
+        <div class="field">
+          <label>Пароль</label>
+          <input type="password" id="loginPass" placeholder="Введите пароль" autocomplete="current-password" />
+        </div>
+        <button type="submit" class="btn btn--primary btn--block">Войти</button>
+      </form>
+      <p style="color:var(--muted);font-size:12.5px;margin-top:14px;">
+        Пароль по умолчанию: <b>admin123</b> — смени его после первого входа.
+      </p>
+      <p id="loginMode" style="color:var(--muted);font-size:12px;margin-top:10px;"></p>
+    </div>
+
+    <!-- ============ ПАНЕЛЬ ============ -->
+    <div id="panelView" class="hidden">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px;">
+        <h1 class="section-title" style="margin:0;">Панель администрации</h1>
+        <span id="cloudBadge" class="badge" style="font-size:11px;"></span>
+      </div>
+      <p class="section-sub">
+        Ответ, написанный в «Ответить игроку», он увидит на странице
+        <a href="status.html">«Статус анкеты»</a> по своему коду заявки.
+      </p>
+
+      <div class="admin-bar">
+        <select id="filterType">
+          <option value="all">Все направления</option>
+          <option value="moderator">🛡️ Модератор</option>
+          <option value="admin">👑 Администрация</option>
+        </select>
+        <select id="filterStatus">
+          <option value="all">Все статусы</option>
+          <option value="new">⏳ На рассмотрении</option>
+          <option value="ok">✅ Приняты</option>
+          <option value="no">❌ Отклонены</option>
+        </select>
+        <select id="sortBy">
+          <option value="new">Сначала новые</option>
+          <option value="old">Сначала старые</option>
+          <option value="status">По статусу</option>
+        </select>
+        <input id="searchBox" type="text" placeholder="🔍 Поиск по нику или коду..." style="min-width:220px;" />
+        <span class="spacer"></span>
+        <button id="btnRefresh" class="btn btn--ghost btn--sm">🔄 Обновить</button>
+        <button id="btnExport" class="btn btn--ghost btn--sm">📥 Экспорт JSON</button>
+        <button id="btnPass" class="btn btn--ghost btn--sm">🔑 Сменить пароль</button>
+        <button id="btnClear" class="btn btn--danger btn--sm">🗑 Очистить все</button>
+        <button id="btnLogout" class="btn btn--ghost btn--sm">Выйти</button>
+      </div>
+
+      <div class="stats" id="stats"></div>
+      <div id="appList"></div>
+    </div>
+  </main>
+
+  <!-- ============ МОДАЛКА ОТВЕТА ============ -->
+  <div class="modal-back" id="answerModal">
+    <div class="modal" style="max-width:640px;text-align:left;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+        <h3 style="margin:0;">💬 Ответ игроку</h3>
+        <span id="amTicket" class="badge badge--ticket" style="margin-left:auto;"></span>
+      </div>
+
+      <p style="color:var(--muted);font-size:13.5px;margin-bottom:12px;">
+        Напиши сообщение — игрок увидит его на странице «Статус анкеты».
+      </p>
+
+      <div class="field" style="margin-bottom:14px;">
+        <label>Быстрые шаблоны</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn--ghost btn--sm" data-tpl="accepted">✅ Принят</button>
+          <button class="btn btn--ghost btn--sm" data-tpl="rejected">❌ Отклонён</button>
+          <button class="btn btn--ghost btn--sm" data-tpl="wait">⏳ Ждём решения</button>
+          <button class="btn btn--ghost btn--sm" data-tpl="discord">🎮 Напиши в Discord</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Текст ответа</label>
+        <textarea id="amText" style="min-height:150px;" placeholder="Привет! Ты принят в состав..."></textarea>
+      </div>
+
+      <div class="ans ans--answer" style="margin-top:14px;">
+        <b>👁️ Так это увидит игрок</b>
+        <div id="amPreview" style="color:var(--muted);">Пока пусто…</div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap;">
+        <button id="amSave" class="btn btn--success">💾 Сохранить ответ</button>
+        <button id="amAccept" class="btn btn--primary">✅ Принять</button>
+        <button id="amReject" class="btn btn--danger">❌ Отклонить</button>
+        <button id="amClose" class="btn btn--ghost" style="margin-left:auto;">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="supabase-config.js"></script>
+  <script src="app.js"></script>
+  <script src="store.js"></script>
+  <script>
+    mountLayout("admin");
+
+    const loginView = document.getElementById("loginView");
+    const panelView = document.getElementById("panelView");
+    const listEl = document.getElementById("appList");
+    const statsEl = document.getElementById("stats");
+    const cloudBadge = document.getElementById("cloudBadge");
+
+    const TYPE_RU = { moderator: "Модератор", admin: "Администрация" };
+    const TYPE_CLS = { moderator: "moderator", admin: "admin" };
+
+    const TEMPLATES = {
+      accepted: "Привет! 🎉\n\nТвоя анкета одобрена — добро пожаловать в состав команды!\nНапиши нам в Discord, чтобы получить роли и доступы.",
+      rejected: "Привет!\n\nК сожалению, на данный момент твоя анкета не прошла отбор.\nНе расстраивайся — попробуй подать заявку позже, набравшись опыта. Удачи! 💪",
+      wait: "Привет!\n\nТвоя анкета принята и сейчас на рассмотрении. Ожидай решения от администрации — ответ появится здесь же. Спасибо за терпение! ⏳",
+      discord: "Привет!\n\nДля завершения отбора напиши нам в Discord: [ссылка]\nТам мы уточним детали и сообщим решение.",
+    };
+
+    let cache = [];
+    let currentAppId = null;
+
+    /* ---------- Вход / выход ---------- */
+    async function render() {
+      const logged = Store.isLogged();
+      loginView.classList.toggle("hidden", logged);
+      panelView.classList.toggle("hidden", !logged);
+      if (logged) {
+        cloudBadge.textContent = Store.mode() === "cloud" ? "☁️ Облако" : "💾 Локально";
+        cloudBadge.className = "badge " + (Store.mode() === "cloud" ? "badge--ok" : "badge--ticket");
+        await loadApps();
+      }
+    }
+
+    document.getElementById("loginMode").textContent = storageBadge();
+
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = e.target.querySelector('button[type="submit"]');
+      btn.disabled = true; btn.textContent = "Проверка...";
+      const pass = document.getElementById("loginPass").value;
+      const ok = await Store.checkPass(pass);
+      if (ok) {
+        Store.login();
+        document.getElementById("loginPass").value = "";
+        await render();
+        toast("Доступ разрешён. Добро пожаловать!");
+      } else {
+        toast("Неверный пароль!", "err");
+      }
+      btn.disabled = false; btn.textContent = "Войти";
+    });
+
+    document.getElementById("btnLogout").addEventListener("click", () => {
+      Store.logout();
+      render();
+      toast("Вы вышли из панели.");
+    });
+
+    document.getElementById("btnPass").addEventListener("click", async () => {
+      const p = prompt("Введите новый пароль для панели (мин. 4 символа):");
+      if (p && p.length >= 4) {
+        await Store.setPass(p);
+        toast("Пароль изменён. Запомни его!");
+      } else if (p !== null) {
+        toast("Пароль слишком короткий!", "err");
+      }
+    });
+
+    document.getElementById("btnClear").addEventListener("click", async () => {
+      if (confirm("Удалить ВСЕ анкеты? Это действие необратимо.")) {
+        await Store.clear();
+        await loadApps();
+        toast("Все анкеты удалены.");
+      }
+    });
+
+    document.getElementById("btnRefresh").addEventListener("click", async () => {
+      await loadApps();
+      toast("Список обновлён 🔄");
+    });
+
+    document.getElementById("btnExport").addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(cache, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "zapiski_ankety.json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast("Файл выгружен 📥");
+    });
+
+    /* ---------- Фильтры ---------- */
+    ["filterType", "filterStatus", "sortBy"].forEach((id) =>
+      document.getElementById(id).addEventListener("change", renderApps)
+    );
+    document.getElementById("searchBox").addEventListener("input", renderApps);
+
+    /* ---------- Загрузка ---------- */
+    async function loadApps() {
+      try {
+        cache = await Store.list();
+        renderApps();
+      } catch (err) {
+        console.error(err);
+        listEl.innerHTML = `<div class="empty"><span class="big">⚠️</span>Ошибка загрузки из базы.<br><small>Проверь supabase-config.js</small></div>`;
+        toast("Ошибка загрузки данных!", "err");
+      }
+    }
+
+    /* ---------- Отрисовка ---------- */
+    function renderApps() {
+      const type = document.getElementById("filterType").value;
+      const status = document.getElementById("filterStatus").value;
+      const sort = document.getElementById("sortBy").value;
+      const q = document.getElementById("searchBox").value.trim().toLowerCase();
+
+      const all = cache;
+      const stats = {
+        all: all.length,
+        new: all.filter((a) => a.status === "new").length,
+        ok: all.filter((a) => a.status === "ok").length,
+        no: all.filter((a) => a.status === "no").length,
+      };
+
+      statsEl.innerHTML = `
+        <div class="stat"><b>${stats.all}</b><span>Всего заявок</span></div>
+        <div class="stat"><b style="color:var(--yellow)">${stats.new}</b><span>На рассмотрении</span></div>
+        <div class="stat"><b style="color:var(--green)">${stats.ok}</b><span>Приняты</span></div>
+        <div class="stat"><b style="color:var(--red)">${stats.no}</b><span>Отклонены</span></div>`;
+
+      let list = all.filter((a) => {
+        if (type !== "all" && a.type !== type) return false;
+        if (status !== "all" && a.status !== status) return false;
+        if (q && !String(a.roblox).toLowerCase().includes(q)
+              && !String(a.ticket || "").toLowerCase().includes(q)) return false;
+        return true;
+      });
+
+      if (sort === "old") list = [...list].reverse();
+      else if (sort === "status") {
+        const order = { new: 0, ok: 1, no: 2 };
+        list = [...list].sort((a, b) => (order[a.status] ?? 3) - (order[b.status] ?? 3));
+      }
+
+      if (!list.length) {
+        listEl.innerHTML = `<div class="empty"><span class="big">📭</span>Заявок пока нет<br /><small>Анкеты появятся здесь после отправки игроками</small></div>`;
+        return;
+      }
+
+      listEl.innerHTML = list.map((a) => `
+        <div class="app-item">
+          <div class="app-item__head">
+            <b style="font-size:18px;">${esc(a.roblox)}</b>
+            <span class="badge badge--${TYPE_CLS[a.type]}">${TYPE_RU[a.type] || esc(a.type)}</span>
+            <span class="badge badge--${a.status}">
+              ${a.status === "new" ? "⏳ На рассмотрении" : a.status === "ok" ? "✅ Принята" : "❌ Отклонена"}
+            </span>
+            <span class="badge badge--ticket">${esc(a.ticket || "—")}</span>
+            <span class="app-item__meta">📅 ${esc(a.date)}</span>
+            ${a.answerDate ? `<span class="app-item__meta">💬 Ответ: ${esc(a.answerDate)}</span>` : ""}
+          </div>
+
+          ${(a.answers || []).map((ans) => `
+            <div class="ans">
+              <b>${esc(ans.label)}</b>
+              <div>${esc(ans.value)}</div>
+            </div>`).join("")}
+
+          ${
+            a.answer
+              ? `<div class="ans ans--answer">
+                   <b>💬 Ответ (видит игрок)</b>
+                   <div>${esc(a.answer)}</div>
+                 </div>`
+              : `<div class="ans">
+                   <b>💬 Ответ пока не отправлен</b>
+                   <div style="color:var(--muted)">Игрок увидит «Пока нет ответа».</div>
+                 </div>`
+          }
+
+          <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+            <button class="btn btn--success btn--sm" onclick="setStatus('${a.id}','ok')">✅ Принять</button>
+            <button class="btn btn--danger btn--sm" onclick="setStatus('${a.id}','no')">❌ Отклонить</button>
+            <button class="btn btn--primary btn--sm" onclick="openAnswer('${a.id}')">💬 Ответить игроку</button>
+            <button class="btn btn--ghost btn--sm" onclick="copyText('${esc(a.ticket)}','Код скопирован 🎫')">🎫 Копировать код</button>
+            <button class="btn btn--ghost btn--sm" onclick="delApp('${a.id}')">🗑</button>
+          </div>
+        </div>`).join("");
+    }
+
+    /* ---------- Действия ---------- */
+    async function setStatus(id, st) {
+      await Store.update(id, {
+        status: st,
+        answerDate: st === "new" ? "" : nowStr(),
+      });
+      await loadApps();
+      toast(st === "ok" ? "Заявка принята ✅" : st === "no" ? "Заявка отклонена ❌" : "Статус сброшен");
+    }
+
+    async function delApp(id) {
+      if (confirm("Удалить эту заявку?")) {
+        await Store.remove(id);
+        await loadApps();
+        toast("Заявка удалена.");
+      }
+    }
+
+    function copyText(text, msg) {
+      navigator.clipboard?.writeText(text).then(
+        () => toast(msg),
+        () => toast("Скопируйте вручную", "err")
+      );
+    }
+
+    /* ---------- Модалка ответа ---------- */
+    const am = document.getElementById("answerModal");
+    const amText = document.getElementById("amText");
+    const amPreview = document.getElementById("amPreview");
+
+    function openAnswer(id) {
+      currentAppId = id;
+      const cur = cache.find((a) => a.id === id);
+      document.getElementById("amTicket").textContent = cur?.ticket || "";
+      amText.value = cur?.answer || "";
+      amPreview.textContent = amText.value || "Пока пусто…";
+      am.classList.add("show");
+    }
+
+    amText.addEventListener("input", () => {
+      amPreview.textContent = amText.value || "Пока пусто…";
+    });
+
+    document.querySelectorAll("[data-tpl]").forEach((b) =>
+      b.addEventListener("click", () => {
+        amText.value = TEMPLATES[b.dataset.tpl] || "";
+        amPreview.textContent = amText.value;
+      })
+    );
+
+    document.getElementById("amClose").addEventListener("click", () => am.classList.remove("show"));
+    am.addEventListener("click", (e) => { if (e.target === am) am.classList.remove("show"); });
+
+    document.getElementById("amSave").addEventListener("click", async () => {
+      if (!currentAppId) return;
+      await Store.update(currentAppId, { answer: amText.value.trim(), answerDate: nowStr() });
+      am.classList.remove("show");
+      await loadApps();
+      toast("Ответ сохранён 💬");
+    });
+
+    document.getElementById("amAccept").addEventListener("click", async () => {
+      if (!currentAppId) return;
+      await Store.update(currentAppId, {
+        status: "ok", answer: amText.value.trim(), answerDate: nowStr(),
+      });
+      am.classList.remove("show");
+      await loadApps();
+      toast("Принято ✅");
+    });
+
+    document.getElementById("amReject").addEventListener("click", async () => {
+      if (!currentAppId) return;
+      await Store.update(currentAppId, {
+        status: "no", answer: amText.value.trim(), answerDate: nowStr(),
+      });
+      am.classList.remove("show");
+      await loadApps();
+      toast("Отклонено ❌");
+    });
+
+    render();
+  </script>
+</body>
+</html>
