@@ -13,8 +13,8 @@
    3. В SQL Editor выполни файл supabase-setup.sql
    ============================================================ */
 
-window.SUPABASE_URL = "";       // например: "https://xyzcompany.supabase.co"
-window.SUPABASE_ANON_KEY = "";  // например: "eyJhbGciOiJIUzI1NiIsInR5..."
+window.SUPABASE_URL = "https://vedgmvzwlmqixvrinocr.supabase.co";
+window.SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZlZGdtdnp3bG1xaXh2cmlub2NyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMwNTI5MTksImV4cCI6MjEwODYyODkxOX0.p54wRs16mmapd7cncrQxMIaZ0RnVe1Sw4qzhkggAfT0"
 
 /* ---------- Остальные настройки проекта ---------- */
 window.PROJECT_NAME    = "РРП 3.0";              // название проекта
