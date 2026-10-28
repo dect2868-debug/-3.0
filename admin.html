@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Администрация — Панель управления</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=7" />
 </head>
 <body>
 
@@ -61,6 +61,7 @@
         <span class="spacer"></span>
         <button id="btnRefresh" class="btn btn--ghost btn--sm">🔄 Обновить</button>
         <button id="btnExport" class="btn btn--ghost btn--sm">📥 Экспорт JSON</button>
+        <button id="btnCsv" class="btn btn--ghost btn--sm">📄 Экспорт CSV</button>
         <button id="btnPass" class="btn btn--ghost btn--sm">🔑 Сменить пароль</button>
         <button id="btnClear" class="btn btn--danger btn--sm">🗑 Очистить все</button>
         <button id="btnLogout" class="btn btn--ghost btn--sm">Выйти</button>
@@ -112,9 +113,9 @@
     </div>
   </div>
 
-  <script src="supabase-config.js"></script>
-  <script src="app.js"></script>
-  <script src="store.js"></script>
+  <script src="supabase-config.js?v=7"></script>
+  <script src="app.js?v=7"></script>
+  <script src="store.js?v=7"></script>
   <script>
     mountLayout("admin");
 
@@ -155,17 +156,23 @@
       e.preventDefault();
       const btn = e.target.querySelector('button[type="submit"]');
       btn.disabled = true; btn.textContent = "Проверка...";
-      const pass = document.getElementById("loginPass").value;
-      const ok = await Store.checkPass(pass);
-      if (ok) {
-        Store.login();
-        document.getElementById("loginPass").value = "";
-        await render();
-        toast("Доступ разрешён. Добро пожаловать!");
-      } else {
-        toast("Неверный пароль!", "err");
+      try {
+        const pass = document.getElementById("loginPass").value;
+        const ok = await Store.checkPass(pass);
+        if (ok) {
+          Store.login();
+          document.getElementById("loginPass").value = "";
+          await render();
+          toast("Доступ разрешён. Добро пожаловать!");
+        } else {
+          toast("Неверный пароль!", "err");
+        }
+      } catch (err) {
+        console.error(err);
+        toast("Нет связи с базой: " + (err.message || "попробуй позже"), "err");
+      } finally {
+        btn.disabled = false; btn.textContent = "Войти";
       }
-      btn.disabled = false; btn.textContent = "Войти";
     });
 
     document.getElementById("btnLogout").addEventListener("click", () => {
@@ -177,8 +184,8 @@
     document.getElementById("btnPass").addEventListener("click", async () => {
       const p = prompt("Введите новый пароль для панели (мин. 4 символа):");
       if (p && p.length >= 4) {
-        await Store.setPass(p);
-        toast("Пароль изменён. Запомни его!");
+        try { await Store.setPass(p); toast("Пароль изменён. Запомни его!"); }
+        catch (err) { console.error(err); toast("Не удалось сохранить пароль: " + (err.message || "сеть"), "err"); }
       } else if (p !== null) {
         toast("Пароль слишком короткий!", "err");
       }
@@ -186,9 +193,16 @@
 
     document.getElementById("btnClear").addEventListener("click", async () => {
       if (confirm("Удалить ВСЕ анкеты? Это действие необратимо.")) {
-        await Store.clear();
-        await loadApps();
-        toast("Все анкеты удалены.");
+        try {
+          await Store.clear();
+          cache = [];
+          renderApps();
+          toast("Все анкеты удалены.");
+        } catch (err) {
+          console.error(err);
+          toast("Не удалось очистить: " + (err.message || "сеть"), "err");
+          await loadApps();
+        }
       }
     });
 
@@ -207,6 +221,25 @@
       toast("Файл выгружен 📥");
     });
 
+    /* Экспорт CSV (открывается в Excel / Google Таблицах) */
+    document.getElementById("btnCsv").addEventListener("click", () => {
+      const q = (v) => '"' + String(v ?? "").replace(/"/g, '""') + '"';
+      const rows = [["Код", "Ник", "Направление", "Статус", "Дата", "Ответ", "Дата ответа"]];
+      cache.forEach((a) => rows.push([
+        a.ticket || "", a.roblox || "", TYPE_RU[a.type] || a.type || "",
+        a.status === "ok" ? "Принята" : a.status === "no" ? "Отклонена" : "На рассмотрении",
+        a.date || "", a.answer || "", a.answerDate || "",
+      ]));
+      const csv = "\uFEFF" + rows.map((r) => r.map(q).join(";")).join("\r\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "ankety.csv";
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast("CSV выгружен 📄");
+    });
+
     /* ---------- Фильтры ---------- */
     ["filterType", "filterStatus", "sortBy"].forEach((id) =>
       document.getElementById(id).addEventListener("change", renderApps)
@@ -216,14 +249,30 @@
     /* ---------- Загрузка ---------- */
     async function loadApps() {
       try {
-        cache = await Store.list();
+        const fresh = await Store.list();
+        cache = fresh;           // заменяем список только при УСПЕХЕ
         renderApps();
       } catch (err) {
+        // Не затираем уже показанные заявки — иначе «анкеты пропадают»
         console.error(err);
-        listEl.innerHTML = `<div class="empty"><span class="big">⚠️</span>Ошибка загрузки из базы.<br><small>Проверь supabase-config.js</small></div>`;
-        toast("Ошибка загрузки данных!", "err");
+        if (cache.length) {
+          renderApps();
+          toast("Нет связи с базой — показаны прежние данные", "err");
+        } else {
+          listEl.innerHTML = `<div class="empty"><span class="big">⚠️</span>Ошибка загрузки из базы.<br><small>Нажми «🔄 Обновить» и проверь соединение</small></div>`;
+          toast("Ошибка загрузки данных!", "err");
+        }
       }
     }
+
+    /* Авто-обновление списка, чтобы не ждать вручную */
+    let refreshing = false;
+    async function autoRefresh() {
+      if (refreshing || !Store.isLogged() || am.classList.contains("show")) return;
+      refreshing = true;
+      try { await loadApps(); } finally { refreshing = false; }
+    }
+    setInterval(autoRefresh, 15000);
 
     /* ---------- Отрисовка ---------- */
     function renderApps() {
@@ -273,6 +322,7 @@
             <span class="badge badge--${a.status}">
               ${a.status === "new" ? "⏳ На рассмотрении" : a.status === "ok" ? "✅ Принята" : "❌ Отклонена"}
             </span>
+            ${syncing.has(a.id) ? `<span class="badge badge--ticket">⏳ сохраняется…</span>` : ""}
             <span class="badge badge--ticket">${esc(a.ticket || "—")}</span>
             <span class="app-item__meta">📅 ${esc(a.date)}</span>
             ${a.answerDate ? `<span class="app-item__meta">💬 Ответ: ${esc(a.answerDate)}</span>` : ""}
@@ -297,30 +347,55 @@
           }
 
           <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
-            <button class="btn btn--success btn--sm" onclick="setStatus('${a.id}','ok')">✅ Принять</button>
-            <button class="btn btn--danger btn--sm" onclick="setStatus('${a.id}','no')">❌ Отклонить</button>
+            <button class="btn btn--success btn--sm" onclick="setStatus('${a.id}','ok',this)">✅ Принять</button>
+            <button class="btn btn--danger btn--sm" onclick="setStatus('${a.id}','no',this)">❌ Отклонить</button>
             <button class="btn btn--primary btn--sm" onclick="openAnswer('${a.id}')">💬 Ответить игроку</button>
             <button class="btn btn--ghost btn--sm" onclick="copyText('${esc(a.ticket)}','Код скопирован 🎫')">🎫 Копировать код</button>
-            <button class="btn btn--ghost btn--sm" onclick="delApp('${a.id}')">🗑</button>
+            <button class="btn btn--ghost btn--sm" onclick="delApp('${a.id}',this)">🗑</button>
           </div>
         </div>`).join("");
     }
 
     /* ---------- Действия ---------- */
-    async function setStatus(id, st) {
-      await Store.update(id, {
-        status: st,
-        answerDate: st === "new" ? "" : nowStr(),
-      });
-      await loadApps();
-      toast(st === "ok" ? "Заявка принята ✅" : st === "no" ? "Заявка отклонена ❌" : "Статус сброшен");
+    /* Синхронизируемые заявки — показываем «⏳ сохраняется» */
+    const syncing = new Set();
+
+    function markSync(id) { syncing.add(id); renderApps(); }
+    function unmarkSync(id) { syncing.delete(id); renderApps(); }
+
+    async function setStatus(id, st, btn) {
+      const answerDate = st === "new" ? "" : nowStr();
+      // 1) Мгновенно показываем результат игроку/админу (оптимистично)
+      const app = cache.find((a) => a.id === id);
+      if (app) { app.status = st; app.answerDate = answerDate; renderApps(); }
+      markSync(id);
+
+      // 2) Фоном сохраняем в базу — интерфейс не блокируется
+      try {
+        await Store.update(id, { status: st, answerDate });
+        toast(st === "ok" ? "Заявка принята ✅" : st === "no" ? "Заявка отклонена ❌" : "Статус сброшен");
+      } catch (err) {
+        console.error(err);
+        toast("Не удалось сохранить: " + (err.message || "ошибка сети"), "err");
+      } finally {
+        unmarkSync(id);
+        try { await loadApps(); } catch { /* уже показана ошибка */ }
+      }
     }
 
-    async function delApp(id) {
-      if (confirm("Удалить эту заявку?")) {
+    async function delApp(id, btn) {
+      if (!confirm("Удалить эту заявку?")) return;
+      const snapshot = [...cache];
+      cache = cache.filter((a) => a.id !== id);
+      renderApps();
+      try {
         await Store.remove(id);
-        await loadApps();
         toast("Заявка удалена.");
+      } catch (err) {
+        console.error(err);
+        cache = snapshot; // вернули — удаление не прошло
+        renderApps();
+        toast("Не удалось удалить: " + (err.message || "ошибка сети"), "err");
       }
     }
 
@@ -359,33 +434,42 @@
     document.getElementById("amClose").addEventListener("click", () => am.classList.remove("show"));
     am.addEventListener("click", (e) => { if (e.target === am) am.classList.remove("show"); });
 
-    document.getElementById("amSave").addEventListener("click", async () => {
+    /* Сохранение ответа: модалка закрывается сразу, синхронизация фоном */
+    async function saveAnswer(btn, patch, okMsg) {
       if (!currentAppId) return;
-      await Store.update(currentAppId, { answer: amText.value.trim(), answerDate: nowStr() });
-      am.classList.remove("show");
-      await loadApps();
-      toast("Ответ сохранён 💬");
-    });
+      const text = amText.value.trim();
+      if (!text) { toast("Напиши текст ответа — иначе игрок ничего не увидит", "err"); amText.focus(); return; }
 
-    document.getElementById("amAccept").addEventListener("click", async () => {
-      if (!currentAppId) return;
-      await Store.update(currentAppId, {
-        status: "ok", answer: amText.value.trim(), answerDate: nowStr(),
-      });
-      am.classList.remove("show");
-      await loadApps();
-      toast("Принято ✅");
-    });
+      const id = currentAppId;
+      const payload = { answer: text, answerDate: nowStr(), ...patch };
 
-    document.getElementById("amReject").addEventListener("click", async () => {
-      if (!currentAppId) return;
-      await Store.update(currentAppId, {
-        status: "no", answer: amText.value.trim(), answerDate: nowStr(),
-      });
+      // Мгновенно обновляем список и закрываем окно
+      const app = cache.find((a) => a.id === id);
+      if (app) Object.assign(app, payload);
       am.classList.remove("show");
-      await loadApps();
-      toast("Отклонено ❌");
-    });
+      renderApps();
+      markSync(id);
+
+      try {
+        await Store.update(id, payload);
+        toast(okMsg);
+      } catch (err) {
+        console.error(err);
+        toast("Ответ НЕ сохранился: " + (err.message || "ошибка сети"), "err");
+      } finally {
+        unmarkSync(id);
+        try { await loadApps(); } catch { /* ошибка уже показана */ }
+      }
+    }
+
+    document.getElementById("amSave").addEventListener("click", (e) =>
+      saveAnswer(e.currentTarget, {}, "Ответ сохранён 💬"));
+
+    document.getElementById("amAccept").addEventListener("click", (e) =>
+      saveAnswer(e.currentTarget, { status: "ok" }, "Принято ✅"));
+
+    document.getElementById("amReject").addEventListener("click", (e) =>
+      saveAnswer(e.currentTarget, { status: "no" }, "Отклонено ❌"));
 
     render();
   </script>

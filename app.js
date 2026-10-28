@@ -28,6 +28,11 @@ function mountLayout(activeKey) {
     (i) => `<a href="${i.href}"${i.key === activeKey ? ' class="active"' : ""}>${i.label}</a>`
   ).join("");
 
+  /* Discord-кнопка в шапке (задаётся в supabase-config.js: window.DISCORD_INVITE) */
+  const discordBtn = window.DISCORD_INVITE
+    ? `<a class="header__discord" href="${window.DISCORD_INVITE}" target="_blank" rel="noopener">💬 Discord</a>`
+    : "";
+
   const header = document.createElement("header");
   header.className = "header";
   header.innerHTML = `
@@ -36,7 +41,10 @@ function mountLayout(activeKey) {
         <span class="logo__mark">🎮</span>
         <span>${window.PROJECT_NAME || "РРП 3.0"}</span>
       </a>
-      <nav class="nav">${navHtml}</nav>
+      <button class="nav-burger" id="navBurger" aria-label="Меню" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="nav" id="mainNav">${navHtml}${discordBtn}</nav>
     </div>`;
 
   const footer = document.createElement("footer");
@@ -45,6 +53,22 @@ function mountLayout(activeKey) {
 
   document.body.prepend(header);
   document.body.append(footer);
+
+  /* Бургер-меню для мобильных */
+  const burger = document.getElementById("navBurger");
+  const nav = document.getElementById("mainNav");
+  const closeNav = () => {
+    nav.classList.remove("nav--open");
+    burger.classList.remove("nav-burger--open");
+    burger.setAttribute("aria-expanded", "false");
+  };
+  burger.addEventListener("click", () => {
+    const open = nav.classList.toggle("nav--open");
+    burger.classList.toggle("nav-burger--open", open);
+    burger.setAttribute("aria-expanded", String(open));
+  });
+  nav.addEventListener("click", (e) => { if (e.target.tagName === "A") closeNav(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeNav(); });
 }
 
 /* ---------- Уведомление ---------- */
@@ -60,7 +84,7 @@ function toast(message, type = "ok") {
   el.className = "toast toast--" + type;
   requestAnimationFrame(() => el.classList.add("show"));
   clearTimeout(el._t);
-  el._t = setTimeout(() => el.classList.remove("show"), 4200);
+  el._t = setTimeout(() => el.classList.remove("show"), 3000);
 }
 
 /* ---------- Валидация формы ---------- */

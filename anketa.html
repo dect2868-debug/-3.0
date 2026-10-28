@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Анкеты — Набор в команду</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=7" />
 </head>
 <body>
 
@@ -20,15 +20,16 @@
 
     <!-- ================= ТАБЫ ================= -->
     <div class="tabs">
-      <button class="tab active" data-tab="moderator">🛡️ Модератор<small>от 14 лет</small></button>
+      <button class="tab active" data-tab="moderator">🛡️ Модератор<small>от 14 лет (иногда 13)</small></button>
       <button class="tab" data-tab="admin">👑 Администрация<small>от 15 лет</small></button>
     </div>
 
     <!-- ============ АНКЕТА: МОДЕРАТОР (14+) ============ -->
     <section id="moderator" class="card fade-in">
       <h3 style="margin-bottom:6px;">🛡️ Анкета на Модератора</h3>
-      <p style="color:var(--muted);font-size:14px;margin-bottom:18px;">Требуемый возраст — <b style="color:var(--yellow)">от 14 лет</b>.</p>
-      <form class="form" data-type="moderator" data-min-age="14" novalidate>
+      <p style="color:var(--muted);font-size:14px;margin-bottom:18px;">Требуемый возраст — <b style="color:var(--yellow)">от 14 лет</b>.
+        Иногда делаем <b style="color:var(--yellow)">исключение с 13 лет</b> — для этого заполни поле обоснования в анкете (решение принимает администрация).</p>
+      <form class="form" data-type="moderator" data-min-age="14" data-exception-age="13" novalidate>
         <div class="field--row">
           <div class="field">
             <label>Ник в Roblox <span class="req">*</span></label>
@@ -36,9 +37,16 @@
           </div>
           <div class="field">
             <label>Возраст <span class="req">*</span></label>
-            <input type="number" name="age" min="14" max="99" placeholder="14" required />
-            <span class="error-text" data-err="age">Минимальный возраст — 14 лет</span>
+            <input type="number" name="age" min="13" max="99" placeholder="14" required />
+            <span class="error-text" data-err="age">Минимальный возраст — 14 лет (иногда исключение с 13 — заполни обоснование)</span>
           </div>
+        </div>
+
+        <div class="field hidden" data-exc="moderator" style="padding:14px;border:1px dashed var(--accent);border-radius:12px;">
+          <label>Обоснование исключения — тебе 13 лет <span class="req">*</span></label>
+          <textarea name="age_excuse" placeholder="Почему тебе можно сделать исключение: опыт, активность, рекомендации, достижения..."></textarea>
+          <span class="error-text" data-err="age_excuse">Без обоснования анкету с 13 лет не примем — заполни поле</span>
+          <small style="color:var(--muted);font-size:12.5px;">Администрация не гарантирует принятие — заявка с 13 лет рассматривается как исключение.</small>
         </div>
 
         <div class="field--row">
@@ -86,7 +94,7 @@
 
         <label class="checkbox">
           <input type="checkbox" name="agree" required />
-          <span>Мне есть 14 лет, я прочитал(а) <a href="rules.html">правила проекта</a> и обязуюсь их соблюдать.</span>
+          <span>Мне есть 14 лет (или 13 — с учётом исключения), я прочитал(а) <a href="rules.html">правила проекта</a> и обязуюсь их соблюдать.</span>
         </label>
 
         <button type="submit" class="btn btn--primary">Отправить анкету на Модератора</button>
@@ -178,9 +186,9 @@
     </div>
   </div>
 
-  <script src="supabase-config.js"></script>
-  <script src="app.js"></script>
-  <script src="store.js"></script>
+  <script src="supabase-config.js?v=7"></script>
+  <script src="app.js?v=7"></script>
+  <script src="store.js?v=7"></script>
   <script>
     mountLayout("anketa");
 
@@ -205,7 +213,26 @@
       exp: "Опыт", why: "Мотивация", cheater: "Действия с нарушителем",
       punish: "Наказания", conflict: "Конфликтная ситуация",
       meaning: "Смысл роли", extra: "Доп. информация", hours: "Свободное время",
+      age_excuse: "Обоснование исключения (13 лет)",
     };
+
+    /* ---------- Исключение с 13 лет (только модератор) ---------- */
+    document.querySelectorAll('form[data-exception-age]').forEach((form) => {
+      const ageInput = form.querySelector('[name="age"]');
+      const excBox = form.querySelector("[data-exc]");
+      const excArea = form.querySelector('[name="age_excuse"]');
+      const excErr = form.querySelector('[data-err="age_excuse"]');
+      if (!ageInput || !excBox) return;
+
+      const sync = () => {
+        const a = parseInt(ageInput.value, 10);
+        const show = a === parseInt(form.dataset.exceptionAge, 10);
+        excBox.classList.toggle("hidden", !show);
+        if (!show && excArea) { excArea.value = ""; excArea.style.borderColor = ""; if (excErr) excErr.style.display = "none"; }
+      };
+      ageInput.addEventListener("input", sync);
+      sync();
+    });
 
     const modal = document.getElementById("ticketModal");
     let lastTicket = "";
@@ -231,18 +258,45 @@
         }
 
         const minAge = parseInt(form.dataset.minAge, 10) || 0;
+        const excAge = parseInt(form.dataset.exceptionAge, 10) || 0;
+        // Жёсткий минимум: если есть исключение (13) — ниже него не проходим,
+        // а ровно на исключении обязана быть причина
+        const hardMin = excAge && excAge < minAge ? excAge : minAge;
         const ageField = form.querySelector('[name="age"]');
         const ageErr = form.querySelector('[data-err="age"]');
         const age = parseInt(ageField.value, 10);
 
-        if (!age || age < minAge) {
+        if (!age || age < hardMin) {
           ageField.style.borderColor = "var(--red)";
           if (ageErr) ageErr.style.display = "block";
-          toast("Возраст не соответствует требованиям!", "err");
+          toast(
+            excAge
+              ? `Минимальный возраст — ${minAge} лет (иногда исключение с ${excAge})`
+              : "Возраст не соответствует требованиям!",
+            "err"
+          );
           return;
         }
         ageField.style.borderColor = "";
         if (ageErr) ageErr.style.display = "none";
+
+        /* Исключение с 13 лет: обязательно обоснование */
+        const excArea = form.querySelector('[name="age_excuse"]');
+        const excErr = form.querySelector('[data-err="age_excuse"]');
+        if (excAge && age === excAge && excArea) {
+          if (!excArea.value.trim()) {
+            excArea.style.borderColor = "var(--red)";
+            if (excErr) excErr.style.display = "block";
+            excArea.focus();
+            toast("С 13 лет нужно обоснование исключения", "err");
+            return;
+          }
+          excArea.style.borderColor = "";
+          if (excErr) excErr.style.display = "none";
+        } else if (excArea) {
+          excArea.style.borderColor = "";
+          if (excErr) excErr.style.display = "none";
+        }
 
         const discord = form.querySelector('[name="discord"]');
         const errEl = form.querySelector('[data-err="discord"]');
@@ -262,6 +316,8 @@
         const oldText = submitBtn.textContent;
         submitBtn.disabled = true;
         submitBtn.textContent = "Отправка...";
+        // Подсказка, если база отвечает долго — чтобы не казалось, что всё зависло
+        const hint = setTimeout(() => { submitBtn.textContent = "Отправляем — база греется…"; }, 4000);
 
         try {
           const created = await Store.create({
@@ -283,10 +339,13 @@
             "status.html?ticket=" + encodeURIComponent(created.ticket);
           modal.classList.add("show");
           form.reset();
+          // Сбросить подсказку об исключении 13 лет после отправки
+          form.querySelectorAll("[data-exc]").forEach((b) => b.classList.add("hidden"));
         } catch (err) {
           console.error(err);
-          toast("Ошибка отправки! Попробуй ещё раз.", "err");
+          toast("Ошибка отправки: " + (err.message || "попробуй ещё раз"), "err");
         } finally {
+          clearTimeout(hint);
           submitBtn.disabled = false;
           submitBtn.textContent = oldText;
         }

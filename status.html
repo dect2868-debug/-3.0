@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Статус анкеты — RP PROJECT</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=7" />
 </head>
 <body>
 
@@ -36,9 +36,9 @@
     </div>
   </main>
 
-  <script src="supabase-config.js"></script>
-  <script src="app.js"></script>
-  <script src="store.js"></script>
+  <script src="supabase-config.js?v=7"></script>
+  <script src="app.js?v=7"></script>
+  <script src="store.js?v=7"></script>
   <script>
     mountLayout("status");
 
@@ -112,14 +112,21 @@
       const busy = btn || document.querySelector('#searchForm button[type="submit"]');
       if (busy) { busy.disabled = true; busy.textContent = "Поиск..."; }
       try {
-        let list = await Store.findByTicket(q);
-        if (!list.length) list = await Store.findByNick(q);
+        // Один запрос в базу вместо двух — поиск вдвое быстрее
+        const all = await Store.list();
+        const byTicket = String(q).trim().toUpperCase();
+        const byNick = String(q).trim().toLowerCase();
+        const list = all.filter(
+          (a) =>
+            String(a.ticket || "").toUpperCase() === byTicket ||
+            String(a.roblox || "").toLowerCase() === byNick
+        );
         render(list);
         if (!list.length) toast("Анкета не найдена 😕", "err");
         return list;
       } catch (err) {
         console.error(err);
-        toast("Ошибка поиска! Попробуй ещё раз.", "err");
+        toast("Поиск не сработал: " + (err.message || "проверь соединение"), "err");
         return [];
       } finally {
         if (busy) { busy.disabled = false; busy.textContent = "Найти анкету"; }

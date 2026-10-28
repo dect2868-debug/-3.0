@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Обновления — РРП 3.0</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=7" />
 </head>
 <body>
 
@@ -22,9 +22,9 @@
     <div id="changelog"></div>
   </main>
 
-  <script src="supabase-config.js"></script>
-  <script src="app.js"></script>
-  <script src="store.js"></script>
+  <script src="supabase-config.js?v=7"></script>
+  <script src="app.js?v=7"></script>
+  <script src="store.js?v=7"></script>
   <script>
     mountLayout("updates");
 
@@ -34,6 +34,29 @@
        fields: version, date, title, tag("major"|"minor"|"fix"), items[]
        ------------------------------------------------------------ */
     const UPDATES = [
+      {
+        version: "2.5.0",
+        date: "28.10.2026",
+        title: "Надёжная админка, ответы игрокам и новое оформление",
+        tag: "major",
+        items: [
+          "fixed: Кнопки «Принять» / «Отклонить» больше не молчат при сбое сети — есть повтор и понятная ошибка",
+          "fixed: Анкеты больше не пропадают из списка при временной ошибке загрузки",
+          "fixed: Ответ администрации теперь точно сохраняется и виден игроку на странице статуса",
+          "fixed: Ошибка загрузки не стирает уже открытые заявки в панели",
+          "fixed: Старые заявки из localStorage автоматически переносятся в облако",
+          "fixed: admin.html не попадал в git из-за глобального .gitignore — раздел был недоступен на сайте",
+          "added: Действия в админке выполняются мгновенно (оптимистично), синхронизация идёт фоном",
+          "added: Авто-обновление списка заявок каждые 15 секунд",
+          "added: Экспорт заявок в CSV (для Excel / Google Таблиц)",
+          "added: Бургер-меню на мобильных — 6 пунктов больше не ломают шапку",
+          "added: Кнопка Discord в шапке (задаётся через DISCORD_INVITE в supabase-config.js)",
+          "added: В наборе на модератора — иногда исключение с 13 лет (с обоснованием)",
+          "added: Таймауты и авто-повторы запросов к базе — «Отправка...» не зависает вечно",
+          "changed: Новое оформление: подсветка заголовков, подъём карточек, пульс у новых заявок",
+          "changed: Уведомления стали короче (3 секунды), поиск статуса — одним запросом",
+        ],
+      },
       {
         version: "2.4.0",
         date: "27.10.2026",

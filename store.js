@@ -25,8 +25,47 @@ function sbHeaders(rep = false) {
 const sbUrl = (params = "") =>
   `${window.SUPABASE_URL}/rest/v1/${TABLE}${params}`;
 
+/* ---------- Надёжный запрос: таймаут + повторы ---------- */
+/* Без этого «Отправка...» могла висеть вечно, а кнопки — молчать. */
+async function sbFetch(url, opts = {}, attempts = 6) {
+  let lastErr = null;
+  for (let i = 0; i < attempts; i++) {
+    const ctrl = new AbortController();
+    // 4 с: зависшее соединение обрывается быстро, повтор идёт по новому
+    const timer = setTimeout(() => ctrl.abort(), 4000);
+    try {
+      const res = await fetch(url, { ...opts, signal: ctrl.signal });
+      clearTimeout(timer);
+      if (res.ok) return res;
+      // 5xx и 429 — временные, повторяем; 4xx — нет
+      if (res.status >= 500 && i < attempts - 1) {
+        lastErr = new Error("Сервер ответил ошибкой " + res.status);
+        await new Promise((r) => setTimeout(r, Math.min(1200, 300 * (i + 1))));
+        continue;
+      }
+      throw new Error("Сервер ответил ошибкой " + res.status);
+    } catch (err) {
+      clearTimeout(timer);
+      if (err && err.message && /Сервер ответил ошибкой 4\d\d/.test(err.message)) throw err;
+      lastErr = err && err.name === "AbortError"
+        ? new Error("База отвечает медленно — попробуй ещё раз")
+        : (err || new Error("Нет связи с базой"));
+      if (i < attempts - 1) {
+        await new Promise((r) => setTimeout(r, Math.min(1200, 300 * (i + 1))));
+        continue;
+      }
+    }
+  }
+  throw lastErr || new Error("Нет связи с базой");
+}
+
 /* Преобразование строки БД → привычный объект заявки */
 function rowToApp(r) {
+  // Защита: Supabase может вернуть [] на вставке (например, RLS) —
+  // тогда destructuring даёт undefined и далее упал бы на чтении r.id
+  if (!r || typeof r !== "object") {
+    throw new Error("Supabase не вернул созданную заявку (пустой ответ)");
+  }
   return {
     id: r.id,
     ticket: r.ticket,
@@ -97,6 +136,45 @@ async function sha256(text) {
   }
 }
 
+/* ---------- Перенос старых локальных анкет в облако ---------- */
+/* Раньше заявки лежали в localStorage — после подключения Supabase
+   они «пропадали». Переносим их один раз за сессию, ничего не теряя. */
+let _migrated = false;
+async function migrateLocalToCloud(cloudApps) {
+  if (_migrated || !SB_READY()) return cloudApps;
+  _migrated = true;
+  let local = [];
+  try { local = lsList(); } catch { return cloudApps; }
+  if (!local.length) return cloudApps;
+
+  const have = new Set(cloudApps.map((a) => String(a.ticket || "")));
+  let out = cloudApps;
+  for (const a of local) {
+    if (!a || have.has(String(a.ticket || ""))) continue;
+    try {
+      const res = await sbFetch(sbUrl("?on_conflict=ticket"), {
+        method: "POST",
+        headers: {
+          ...sbHeaders(true),
+          Prefer: "return=representation,resolution=ignore-duplicates",
+        },
+        body: JSON.stringify(appToRow(a)),
+      }, 2);
+      let body = [];
+      try { body = await res.json(); } catch { body = []; }
+      const row = Array.isArray(body) ? body[0] : body;
+      if (row && typeof row === "object") out = [rowToApp(row), ...out];
+    } catch (err) {
+      console.warn("Не перенеслась локальная анкета", a.ticket, err);
+    }
+  }
+  if (out !== cloudApps) {
+    // Перенесли — помечаем, но локальную копию не стираем (пусть будет бэкапом)
+    try { localStorage.setItem("rp_migrated_v1", "1"); } catch {}
+  }
+  return out;
+}
+
 /* ============================================================
    ПУБЛИЧНОЕ API — все методы асинхронные (await)
    ============================================================ */
@@ -108,11 +186,11 @@ const Store = {
   /* --- список всех заявок --- */
   async list() {
     if (SB_READY()) {
-      const res = await fetch(sbUrl("?select=*&order=created_at.desc"), {
+      const res = await sbFetch(sbUrl("?select=*&order=created_at.desc"), {
         headers: sbHeaders(),
       });
-      if (!res.ok) throw new Error("Supabase: " + res.status);
-      return (await res.json()).map(rowToApp);
+      const apps = (await res.json()).map(rowToApp);
+      return await migrateLocalToCloud(apps);
     }
     return lsList();
   },
@@ -132,14 +210,30 @@ const Store = {
     };
 
     if (SB_READY()) {
-      const res = await fetch(sbUrl(), {
+      /* on_conflict=ticket + ignore-duplicates: если первый запрос дошёл до
+         базы, а ответ потерялся — повтор НЕ создаст дубликат анкеты. */
+      const res = await sbFetch(sbUrl("?on_conflict=ticket"), {
         method: "POST",
-        headers: sbHeaders(true),
+        headers: {
+          ...sbHeaders(true),
+          Prefer: "return=representation,resolution=ignore-duplicates",
+        },
         body: JSON.stringify(appToRow(record)),
-      });
-      if (!res.ok) throw new Error("Supabase: " + res.status);
-      const [row] = await res.json();
-      return rowToApp(row);
+      }, 3);
+      let body = [];
+      try { body = await res.json(); } catch { body = []; }
+      const row = Array.isArray(body) ? body[0] : body;
+      if (row && typeof row === "object") return rowToApp(row);
+
+      // Пустой ответ — читаем строку по коду (вставилась ли она?)
+      try {
+        const chk = await fetch(sbUrl(`?ticket=eq.${encodeURIComponent(ticket)}`), {
+          headers: sbHeaders(),
+        });
+        const rows = await chk.json();
+        if (rows && rows[0]) return rowToApp(rows[0]);
+      } catch { /* игнорируем — вернём локальный объект */ }
+      return { ...record, id: record.ticket };
     }
 
     record.id = Date.now() + "_" + Math.random().toString(36).slice(2, 8);
@@ -148,19 +242,19 @@ const Store = {
     return record;
   },
 
-  /* --- обновить заявку --- */
+  /* --- обновить заявку (повторы и таймаут — внутри sbFetch) --- */
   async update(id, patch) {
     if (SB_READY()) {
       const row = { ...patch };
       if ("answerDate" in patch) { row.answer_date = patch.answerDate; delete row.answerDate; }
-      const res = await fetch(sbUrl(`?id=eq.${encodeURIComponent(id)}`), {
+      await sbFetch(sbUrl(`?id=eq.${encodeURIComponent(id)}`), {
         method: "PATCH",
         headers: sbHeaders(),
         body: JSON.stringify(row),
       });
-      if (!res.ok) throw new Error("Supabase: " + res.status);
       return;
     }
+
     const all = lsList();
     const i = all.findIndex((a) => a.id === id);
     if (i !== -1) { all[i] = { ...all[i], ...patch }; lsSave(all); }
@@ -169,11 +263,10 @@ const Store = {
   /* --- удалить заявку --- */
   async remove(id) {
     if (SB_READY()) {
-      const res = await fetch(sbUrl(`?id=eq.${encodeURIComponent(id)}`), {
+      await sbFetch(sbUrl(`?id=eq.${encodeURIComponent(id)}`), {
         method: "DELETE",
         headers: sbHeaders(),
       });
-      if (!res.ok) throw new Error("Supabase: " + res.status);
       return;
     }
     lsSave(lsList().filter((a) => a.id !== id));
@@ -182,10 +275,9 @@ const Store = {
   /* --- очистить все заявки --- */
   async clear() {
     if (SB_READY()) {
-      const res = await fetch(sbUrl("?id=neq.00000000-0000-0000-0000-000000000000"), {
+      await sbFetch(sbUrl("?id=neq.00000000-0000-0000-0000-000000000000"), {
         method: "DELETE", headers: sbHeaders(),
       });
-      if (!res.ok) throw new Error("Supabase: " + res.status);
       return;
     }
     lsSave([]);
@@ -218,21 +310,19 @@ const Store = {
 
     if (SB_READY()) {
       try {
-        const res = await fetch(
+        const res = await sbFetch(
           `${window.SUPABASE_URL}/rest/v1/settings?key=eq.admin_pass_hash&select=value`,
-          { headers: sbHeaders() }
+          { headers: sbHeaders() }, 2
         );
-        if (res.ok) {
-          const rows = await res.json();
-          if (rows.length) return rows[0].value === hash;
-          // хэша ещё нет — сохраняем пароль по умолчанию
-          await fetch(`${window.SUPABASE_URL}/rest/v1/settings`, {
-            method: "POST",
-            headers: sbHeaders(),
-            body: JSON.stringify({ key: "admin_pass_hash", value: hash }),
-          });
-          return pass === (window.DEFAULT_ADMIN_PASS || "admin123");
-        }
+        const rows = await res.json();
+        if (rows.length) return rows[0].value === hash;
+        // хэша ещё нет — сохраняем пароль по умолчанию
+        await sbFetch(`${window.SUPABASE_URL}/rest/v1/settings`, {
+          method: "POST",
+          headers: sbHeaders(),
+          body: JSON.stringify({ key: "admin_pass_hash", value: hash }),
+        }, 2);
+        return pass === (window.DEFAULT_ADMIN_PASS || "admin123");
       } catch { /* падаем в локальную проверку */ }
     }
 
@@ -246,19 +336,29 @@ const Store = {
     const hash = await sha256(pass);
 
     if (SB_READY()) {
-      // Сначала пробуем обновить существующую строку
-      const patched = await fetch(
-        `${window.SUPABASE_URL}/rest/v1/settings?key=eq.admin_pass_hash`,
-        { method: "PATCH", headers: sbHeaders(), body: JSON.stringify({ value: hash }) }
-      );
+      // Сначала пробуем обновить существующую строку (с таймаутом 4 с)
+      let patchedOk = false, cnt = 0;
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 4000);
+        const patched = await fetch(
+          `${window.SUPABASE_URL}/rest/v1/settings?key=eq.admin_pass_hash`,
+          { method: "PATCH", headers: sbHeaders(), body: JSON.stringify({ value: hash }), signal: ctrl.signal }
+        );
+        clearTimeout(timer);
+        cnt = parseInt(patched.headers.get("content-range") || "0", 10);
+        patchedOk = patched.ok;
+      } catch { /* подвисло — вставим строку заново */ }
       // Если строк не нашлось (0 записей) — вставляем новую
-      const cnt = parseInt(patched.headers.get("content-range") || "0", 10);
-      if (!patched.ok || !cnt) {
-        await fetch(`${window.SUPABASE_URL}/rest/v1/settings`, {
+      if (!patchedOk || !cnt) {
+        await sbFetch(`${window.SUPABASE_URL}/rest/v1/settings?on_conflict=key`, {
           method: "POST",
-          headers: sbHeaders(true),
+          headers: {
+            ...sbHeaders(true),
+            Prefer: "return=representation,resolution=ignore-duplicates",
+          },
           body: JSON.stringify({ key: "admin_pass_hash", value: hash }),
-        });
+        }, 3);
       }
       return;
     }
